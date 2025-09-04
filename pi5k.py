@@ -7,26 +7,15 @@ import random
 import sys
 import os
 import gc
-import time
-import glob
-import shutil  # For disk usage
-
-# Variables for Pendulum Speeds (min and max)
-pendulum1_min_speed = 1.5  # Updated min speed as per your setting
-pendulum1_max_speed = 3.0
-pendulum2_min_speed = 1.5  # Updated min speed as per your setting
-pendulum2_max_speed = 3.0
-pendulum3_min_speed = 1.5  # If third pendulum is enabled
-
-# ======= Direction Variables =======
-# Variables to control the rotation direction of the pendulums
-direction_var1 = 1  # Set to 1 for positive rotation, -1 for negative rotation of first pendulum
-direction_var2 = 1  # Set to 1 for positive rotation, -1 for negative rotation of second pendulum
-direction_var3 = 0  # Set to 1 for positive rotation, -1 for negative rotation of third pendulum
+import time  # Added for optional sleep
 
 # ======= New Boolean Flags =======
-reverse_main_pendulum = True  # Set to True to enable reversing the main pendulum's direction at halfway
+# Control whether to enable reversing the main pendulum's direction at halfway
+reverse_main_pendulum = True  # Set to True to enable, False to disable
+
+# Control whether to enable changing color upon direction reversal
 change_color_on_direction_change = True  # Set to True to enable color change on direction reversal
+# ===============================
 
 # Control whether to save the image or not
 save_image = True  # Set to True to save images
@@ -39,6 +28,12 @@ show_pendulums = False  # Change to True to show pendulum arms
 
 # Variable to enable or disable the third pendulum
 enable_third_pendulum = False  # Set to True to include the third pendulum, False otherwise
+
+# Variables to control the rotation direction of the pendulums
+# Set direction_var1, direction_var2, and direction_var3 to 1 or -1 for each pendulum's rotation direction
+direction_var1 = 1  # Set to 1 for positive rotation, -1 for negative rotation of first pendulum
+direction_var2 = 1  # Set to 1 for positive rotation, -1 for negative rotation of second pendulum
+direction_var3 = 0  # Set to 1 for positive rotation, -1 for negative rotation of third pendulum
 
 # Boolean to control automatic change of direction of the second pendulum after each run
 alternate_direction2 = True  # Set to True to alternate direction each run, False to keep constant
@@ -68,14 +63,52 @@ def random_color():
     Generate a random neon color from a predefined list.
     """
     neon_colors = [
-        "#39FF14", "#DFFF00", "#FF3F00", "#FF00FF", "#00FFFF", "#FF6600", "#6E0DD0", "#FFFFFF",
-        "#00FF00", "#FF007F", "#FE347E", "#FE4EDA", "#9DFF00", "#FEFE22", "#7D3CF8", "#50BFE6",
-        "#FF6EFF", "#EE34D2", "#FFD300", "#76FF7A", "#FF073A", "#FF6EC7", "#FFBF00", "#CCFF00",
-        "#00FFEF", "#FF10F0", "#00FF7F", "#FF4500", "#9400D3", "#FF1493", "#32CD32", "#7FFF00",
-        "#00CED1", "#FF00CC", "#FF69B4", "#ADFF2F", "#1E90FF", "#FFB6C1", "#00FA9A", "#FF6347", 
-        "#8A2BE2"
+        "#39FF14",  # Neon Green
+        "#DFFF00",  # Neon Yellow
+        "#FF3F00",  # Neon Red
+        "#FF00FF",  # Neon Pink
+        "#00FFFF",  # Neon Cyan
+        "#FF6600",  # Neon Orange
+        "#6E0DD0",  # Neon Purple
+        "#FFFFFF",  # Neon White
+        "#00FF00",  # Another Neon Green
+        "#FF007F",  # Neon Magenta
+        "#FE347E",  # Neon Rose
+        "#FE4EDA",  # Neon Fuchsia
+        "#9DFF00",  # Neon Lime
+        "#FEFE22",  # Neon Lemon
+        "#7D3CF8",  # Neon Violet
+        "#50BFE6",  # Neon Blue
+        "#FF6EFF",  # Neon Lavender
+        "#EE34D2",  # Neon Dark Pink
+        "#FFD300",  # Neon Sunflower
+        "#76FF7A",  # Neon Light Green
+        # ======= Additional 20 Neon Colors =======
+        "#FF073A",  # Electric Crimson
+        "#FF6EC7",  # Neon Pink
+        "#FFBF00",  # Neon Amber
+        "#CCFF00",  # Electric Lime
+        "#00FFEF",  # Electric Cyan
+        "#FF10F0",  # Ultra Pink
+        "#00FF7F",  # Spring Green
+        "#FF4500",  # Neon Orange Red
+        "#9400D3",  # Dark Violet
+        "#FF1493",  # Deep Pink
+        "#32CD32",  # Lime Green
+        "#7FFF00",  # Chartreuse
+        "#00CED1",  # Dark Turquoise
+        "#FF00CC",  # Magenta
+        "#FF69B4",  # Hot Pink
+        "#ADFF2F",  # Green Yellow
+        "#1E90FF",  # Dodger Blue
+        "#FFB6C1",  # Light Pink
+        "#00FA9A",  # Medium Spring Green
+        "#FF6347",  # Tomato
+        "#8A2BE2",  # Blue Violet
+        # ============================================
     ]
     return random.choice(neon_colors)
+
 
 def format_countdown(elapsed_time, run_time_seconds):
     """
@@ -85,40 +118,7 @@ def format_countdown(elapsed_time, run_time_seconds):
     minutes, seconds = divmod(remaining_time, 60)
     return f"{minutes:02d}:{seconds:02d}"
 
-def get_image_stats():
-    """
-    Get the total number of images and the average image size.
-    """
-    image_files = glob.glob(os.path.join(image_folder, '*.png'))
-    image_count = len(image_files)
-    if image_files:
-        total_size = sum(os.path.getsize(f) for f in image_files)
-        average_size = total_size / image_count
-    else:
-        average_size = 2 * 1024 * 1024  # Assume 2 MB average if no images yet
-    return image_count, average_size
-
-def get_free_space():
-    """
-    Get the free disk space in bytes.
-    """
-    total, used, free = shutil.disk_usage('/')
-    return free
-
-def get_remaining_images(average_size):
-    """
-    Estimate the number of images that can be saved before only 1GB of storage is left.
-    """
-    free_space = get_free_space()
-    target_free_space = 1 * 1024 ** 3  # 1 GB in bytes
-    usable_space = free_space - target_free_space
-    if usable_space <= 0 or average_size == 0:
-        remaining_images = 0
-    else:
-        remaining_images = int(usable_space / average_size)
-    return remaining_images
-
-def animate_pendulum(run_time_seconds, direction1, direction2, direction3, reverse_main_pendulum, image_count, remaining_images):
+def animate_pendulum(run_time_seconds, direction1, direction2, direction3, reverse_main_pendulum):
     """
     Animate a double or triple pendulum and optionally save its path as an image.
 
@@ -128,22 +128,26 @@ def animate_pendulum(run_time_seconds, direction1, direction2, direction3, rever
     - direction2 (int): Rotation direction of the second pendulum (1 or -1).
     - direction3 (int): Rotation direction of the third pendulum (1 or -1).
     - reverse_main_pendulum (bool): Whether to reverse the main pendulum's direction at halfway.
-    - image_count (int): Total number of images saved.
-    - remaining_images (int): Estimated number of images that can be saved before reaching 1GB free space.
     """
     # Random pendulum parameters for variation in animations
     arm1_length = random.uniform(5, 15)
     arm2_length = random.uniform(5, 15)
     angle1 = random.uniform(0, 2 * np.pi)
     angle2 = random.uniform(0, 2 * np.pi)
-    pendulum1_speed = random.uniform(pendulum1_min_speed, pendulum1_max_speed)
-    pendulum2_speed = random.uniform(pendulum2_min_speed, pendulum2_max_speed)
+    pendulum1_speed = random.uniform(0.5, 3.0)
+    pendulum2_speed = random.uniform(0.5, 3.0)
+
+    # Initialize angle shifts based on directions
+    # These will be recalculated in each frame to allow dynamic direction changes
+    # angle_shift1 = direction1 * np.pi / 180 * pendulum1_speed
+    # angle_shift2 = direction2 * np.pi / 180 * pendulum2_speed
 
     # If the third pendulum is enabled
     if enable_third_pendulum:
         arm3_length = random.uniform(5, 15)
         angle3 = random.uniform(0, 2 * np.pi)
-        pendulum3_speed = random.uniform(pendulum3_min_speed, pendulum3_max_speed)
+        pendulum3_speed = pendulum2_speed  # Same speed as the second pendulum
+        # angle_shift3 = direction3 * np.pi / 180 * pendulum3_speed
 
     # Random color for the initial path
     initial_line_color = random_color()
@@ -183,17 +187,6 @@ def animate_pendulum(run_time_seconds, direction1, direction2, direction3, rever
     timer_text = ax.text(
         0.05, 0.95, '', horizontalalignment='left',
         verticalalignment='top', transform=ax.transAxes, color='white', fontsize=16
-    )
-
-    # Add the image counter text in the bottom left corner
-    image_counter_text = ax.text(
-        0.05, 0.05,
-        f"Images saved: {image_count}\nRemaining images: {remaining_images}",
-        horizontalalignment='left',
-        verticalalignment='bottom',
-        transform=ax.transAxes,
-        color='white',
-        fontsize=16
     )
 
     # Set axis limits and appearance
@@ -333,9 +326,9 @@ def animate_pendulum(run_time_seconds, direction1, direction2, direction3, rever
         timer_text.set_text(format_countdown(elapsed_time, run_time_seconds))
 
         if enable_third_pendulum:
-            return [arm1_line, arm2_line, arm3_line, timer_text, image_counter_text] + [segment['line'] for segment in path_segments]
+            return [arm1_line, arm2_line, arm3_line, timer_text] + [segment['line'] for segment in path_segments]
         else:
-            return [arm1_line, arm2_line, timer_text, image_counter_text] + [segment['line'] for segment in path_segments]
+            return [arm1_line, arm2_line, timer_text] + [segment['line'] for segment in path_segments]
 
     # Create the animation
     ani = animation.FuncAnimation(
@@ -346,14 +339,11 @@ def animate_pendulum(run_time_seconds, direction1, direction2, direction3, rever
 
 def main():
     # Initialize the current direction of the second pendulum
+    # Start with the direction specified by direction_var2
     current_direction2 = 1 if direction_var2 == 1 else -1
 
     # Set the direction of the third pendulum based on direction_var3
     direction3 = 1 if direction_var3 == 1 else -1
-
-    # Get initial image stats
-    image_count, average_size = get_image_stats()
-    remaining_images = get_remaining_images(average_size)
 
     while True:
         # Generate a random duration for the animation
@@ -365,11 +355,7 @@ def main():
         direction2 = current_direction2
 
         # Call the animation function with the random duration and directions
-        animate_pendulum(run_time_seconds, direction1, direction2, direction3, reverse_main_pendulum, image_count, remaining_images)
-
-        # Update image stats after saving the image
-        image_count, average_size = get_image_stats()
-        remaining_images = get_remaining_images(average_size)
+        animate_pendulum(run_time_seconds, direction1, direction2, direction3, reverse_main_pendulum)
 
         # Clean up resources
         plt.close('all')
